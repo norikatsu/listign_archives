@@ -33,11 +33,11 @@ def main(args):
 
     # ファイルリスト取得
     file_list = get_file_list_recursive( input_files_path )
-    print("All File List :", file_list)
+    #DBG print("All File List :", file_list)
 
     # アーカイブファイルリスト取得
     archive_list = filter_archive_files( file_list )    # リストからアーカイブファイルのみ抽出
-    print("Archive File List :", archive_list)
+    #DBG print("Archive File List :", archive_list)
 
     # 下記3行は for if処理を一行で行うサンプルなので消さない
     ## sample modarchive_list = [ "_".join(path.split( os.path.sep ))  for path in archive_list ] # 区切り文字を_に変更
@@ -54,37 +54,50 @@ def main(args):
         rename = rename.lstrip('.') if rename.startswith('.') else rename
         rename = rename.lstrip('_') if rename.startswith('_') else rename
 
-        if file.endswith('.zip') :
+        #DBG print( file )
+        #DBG if zipfile.is_zipfile(file) :
+        #DBG     print( " is Zip" )
+        #DBG else :
+        #DBG     print( " is Not" )
+
+        if ( (file.endswith('.zip')) and  (zipfile.is_zipfile(file)) ) :
             with zipfile.ZipFile(file, 'r') as zip_ref:
                 zipfile_dir_list = zip_ref.namelist()                                         # アーカイブ内ファイルリスト取得
                 zipfile_list = [path for path in zipfile_dir_list if not path.endswith('/') ] # ディレクトリのみの要素削除
 
                 ## # 先頭のファイルを抽出
                 file_in_zip = zipfile_list[0]
-                ## zip_ref.extract(file_to_extract, '抽出先のディレクトリのパス')
-                ## print(f"{file_to_extract} を抽出しました")
+                #zip_ref.extract(file_to_extract, '抽出先のディレクトリのパス')
+                #DBG print(file_in_zip , " を抽出しました")
 
-                with zip_ref.open(file_in_zip) as file:
-                    data = file.read()  
-                    arr = np.frombuffer(data, np.uint8)              # 読み込みデータ(バイナリ列)を numpyアレイに変換
-                    img_np = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # OpenCVの画像フォーマットに変換
-        
-                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality ]
-                    resized_img = cv2.resize(img_np, None, fx=resize_ratio, fy=resize_ratio )     # リサイズ処理
+                try:
+                    with zip_ref.open(file_in_zip) as file:
+                        data = file.read()  
+                        arr = np.frombuffer(data, np.uint8)              # 読み込みデータ(バイナリ列)を numpyアレイに変換
+                        img_np = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # OpenCVの画像フォーマットに変換
+            
+                        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality ]
+                        resized_img = cv2.resize(img_np, None, fx=resize_ratio, fy=resize_ratio )     # リサイズ処理
 
-                    success, jpg_data = cv2.imencode('.jpg', resized_img , encode_param) # OpenCV画像フォーマットからjpgバイナリに変換
-                    if not success:
-                        raise Exception("Failed to encode image to JPG format")
+                        success, jpg_data = cv2.imencode('.jpg', resized_img , encode_param) # OpenCV画像フォーマットからjpgバイナリに変換
+                        if not success:
+                            raise Exception("Failed to encode image to JPG format")
 
-                    base64_jpg = base64.b64encode(jpg_data).decode('utf-8')  # jpgバイナリからbase64に変換
+                        base64_jpg = base64.b64encode(jpg_data).decode('utf-8')  # jpgバイナリからbase64に変換
 
-                    # base64形式のデータをファイルに保存しないで、表示または別の処理に使用する
-                    print(type(base64_jpg))
-                    ## DBGprint(base64_jpg)
-                    #cv2.imwrite( output_file , resized_img)
+                        # base64形式のデータをファイルに保存しないで、表示または別の処理に使用する
+                        #DBG print(type(base64_jpg))
+                        ## DBGprint(base64_jpg)
+                        #cv2.imwrite( output_file , resized_img)
 
-                    list = [rename, base64_jpg]
-                    image_list.append( list )
+                        list = [rename, base64_jpg]
+                        image_list.append( list )
+                except zipfile.BadZipFile as e:
+                    print("Zip File [", file, "] is corrupt.... : ", e)
+                except KeyError as e:
+                    print("Not Found File.... : ", e)
+                except Exception as e:
+                    print("Unexpected Error.... : ", e)
 
 
 
